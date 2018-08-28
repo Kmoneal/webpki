@@ -245,6 +245,39 @@ impl <'a> EndEntityCert<'a> {
         signed_data::verify_signature(signature_alg, self.inner.spki, msg,
                                       signature)
     }
+
+    ///
+    pub fn get_signing_alg(&self) -> &[u8] {
+        let alg = self.inner.get_signing_alg().as_slice_less_safe();
+        alg
+    }
+
+    ///
+    pub fn get_issuer(&self) -> &[u8] {
+        self.inner.get_issuer().as_slice_less_safe()
+    }
+
+    ///
+    pub fn get_validity(&self) -> Result<(u64, u64), ()> {
+        let mut validity = untrusted::Reader::new(self.inner.get_validity());
+        let not_before = der::time_choice(&mut validity).expect("return time");
+        let not_after = der::time_choice(&mut validity).expect("returning time");
+        Ok((not_before.0, not_after.0))
+    }
+
+    ///
+    pub fn get_subject(&self) -> &[u8] {
+        self.inner.get_subject().as_slice_less_safe()
+    }
+
+    ///
+    pub fn get_subject_alt_name(&self) -> Option<&[u8]> {
+        let alt_name = self.inner.get_subject_alt_name();
+        match alt_name {
+            Some(subject) => Some(subject.as_slice_less_safe()),
+            None => None
+        }
+    }
 }
 
 

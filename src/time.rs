@@ -23,7 +23,7 @@ use {ring, std};
 /// seconds since the start of 1970.  This type exists to assist
 /// unit-of-measure correctness.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub struct Time(u64);
+pub struct Time(pub u64);
 
 impl Time {
     /// Create a `webpki::Time` from a `std::time::SystemTime`.

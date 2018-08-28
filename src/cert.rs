@@ -35,6 +35,34 @@ pub struct Cert<'a> {
     pub subject_alt_name: Option<untrusted::Input<'a>>,
 }
 
+///
+impl<'a> Cert<'a> {
+    ///
+    pub fn get_signing_alg(&self) -> untrusted::Input {
+        self.signed_data.algorithm
+    }
+
+    ///
+    pub fn get_issuer(&self) -> untrusted::Input {
+        self.issuer
+    }
+
+    ///
+    pub fn get_validity(&self) -> untrusted::Input {
+        self.validity
+    }
+
+    ///
+    pub fn get_subject(&self) -> untrusted::Input {
+        self.subject
+    }
+
+    ///
+    pub fn get_subject_alt_name(&self) -> Option<untrusted::Input> {
+        self.subject_alt_name
+    }
+}
+
 pub fn parse_cert<'a>(cert_der: untrusted::Input<'a>,
                       ee_or_ca: EndEntityOrCA<'a>) -> Result<Cert<'a>, Error> {
     parse_cert_internal(cert_der, ee_or_ca, certificate_serial_number)
