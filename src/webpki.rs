@@ -247,9 +247,9 @@ impl <'a> EndEntityCert<'a> {
     }
 
     ///
-    pub fn get_signing_alg(&self) -> &[u8] {
-        let alg = self.inner.get_signing_alg().as_slice_less_safe();
-        alg
+    #[cfg(feature = "std")]
+    pub fn get_signing_alg(&self) -> Result<std::string::String, Error> {
+        der::parse_oid(&mut self.inner.get_signing_alg())
     }
 
     ///

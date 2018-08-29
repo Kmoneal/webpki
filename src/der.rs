@@ -25,6 +25,9 @@ use calendar;
 use time;
 use untrusted;
 
+#[cfg(feature = "std")]
+use std;
+
 #[inline(always)]
 pub fn expect_tag_and_get_value<'a>(input: &mut untrusted::Reader<'a>,
                                     tag: Tag) ->
@@ -159,6 +162,46 @@ pub fn time_choice<'a>(input: &mut untrusted::Reader<'a>)
         calendar::time_from_ymdhms_utc(year, month, day_of_month, hours, minutes,
                                        seconds)
     })
+}
+
+///
+#[cfg(feature = "std")]
+pub fn parse_oid<'a>(input: &mut untrusted::Input<'a>) -> Result<std::string::String, Error> {
+    use std::string::ToString;
+    //let oid = expect_tag_and_get_value(input, Tag::OID)?;
+    //oid.read_all(Error::BadDER, |data| {
+    let data = input.as_slice_less_safe();
+    let mut oid_string = std::string::String::new();
+    let mut stack = std::collections::VecDeque::new();
+
+    let length = data[1] as usize;
+
+    let first = data[2];
+    oid_string.push_str(&(first/40).to_string());
+    oid_string.push('.');
+    oid_string.push_str(&(first%40).to_string());
+    oid_string.push('.');
+
+    for i in 3..(length + 2) {
+        if data[i] > 128 {
+            stack.push_front(data[i]);
+        } else {
+            let mut subtotal = data[i] as u64;
+            let mut iteration = 0;
+            while !stack.is_empty() {
+                iteration = iteration + 1;
+                let prev_value = stack.pop_front().ok_or_else(|| Error::BadDER)?;
+                subtotal = subtotal + ((prev_value - 128) as u64) * 128_u64.pow(iteration);
+            }
+            oid_string.push_str(&subtotal.to_string());
+
+            if i < length + 1 {
+                oid_string.push('.');
+            }
+        }
+    }
+    Ok(oid_string)
+    //})
 }
 
 macro_rules! oid {
