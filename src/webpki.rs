@@ -249,12 +249,14 @@ impl <'a> EndEntityCert<'a> {
     ///
     #[cfg(feature = "std")]
     pub fn get_signing_alg(&self) -> Result<std::string::String, Error> {
-        der::parse_oid(&mut self.inner.get_signing_alg())
+        let mut reader = untrusted::Reader::new(self.inner.get_signing_alg());
+        der::parse_oid(&mut reader)
     }
 
     ///
-    pub fn get_issuer(&self) -> &[u8] {
-        self.inner.get_issuer().as_slice_less_safe()
+    pub fn get_issuer(&self) -> Result<der::RelativeDistinguishedName, Error> {
+        let mut reader = untrusted::Reader::new(self.inner.get_issuer());
+        der::parse_name(&mut reader)
     }
 
     ///
@@ -266,8 +268,9 @@ impl <'a> EndEntityCert<'a> {
     }
 
     ///
-    pub fn get_subject(&self) -> &[u8] {
-        self.inner.get_subject().as_slice_less_safe()
+    pub fn get_subject(&self) -> Result<der::RelativeDistinguishedName, Error> {
+        let mut reader = untrusted::Reader::new(self.inner.get_subject());
+        der::parse_name(&mut reader)
     }
 
     ///

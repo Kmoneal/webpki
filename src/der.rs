@@ -166,42 +166,122 @@ pub fn time_choice<'a>(input: &mut untrusted::Reader<'a>)
 
 ///
 #[cfg(feature = "std")]
-pub fn parse_oid<'a>(input: &mut untrusted::Input<'a>) -> Result<std::string::String, Error> {
+pub fn parse_oid<'a>(input: &mut untrusted::Reader<'a>) -> Result<std::string::String, Error> {
     use std::string::ToString;
-    //let oid = expect_tag_and_get_value(input, Tag::OID)?;
-    //oid.read_all(Error::BadDER, |data| {
-    let data = input.as_slice_less_safe();
-    let mut oid_string = std::string::String::new();
-    let mut stack = std::collections::VecDeque::new();
+    let oid = expect_tag_and_get_value(input, Tag::OID)?;
 
-    let length = data[1] as usize;
+    oid.read_all(Error::BadDER, |data| {
+        let mut oid_string = std::string::String::new();
+        let mut stack = std::collections::VecDeque::new();
 
-    let first = data[2];
-    oid_string.push_str(&(first/40).to_string());
-    oid_string.push('.');
-    oid_string.push_str(&(first%40).to_string());
-    oid_string.push('.');
+        let first = data.read_byte().map_err(|_| Error::BadDER)?;
+        oid_string.push_str(&(first/40).to_string());
+        oid_string.push('.');
+        oid_string.push_str(&(first%40).to_string());
 
-    for i in 3..(length + 2) {
-        if data[i] > 128 {
-            stack.push_front(data[i]);
-        } else {
-            let mut subtotal = data[i] as u64;
-            let mut iteration = 0;
-            while !stack.is_empty() {
-                iteration = iteration + 1;
-                let prev_value = stack.pop_front().ok_or_else(|| Error::BadDER)?;
-                subtotal = subtotal + ((prev_value - 128) as u64) * 128_u64.pow(iteration);
-            }
-            oid_string.push_str(&subtotal.to_string());
-
-            if i < length + 1 {
+        while let Ok(value) = data.read_byte() {
+            if value >= 128 {
+                stack.push_front(value);
+            } else {
                 oid_string.push('.');
+                let mut subtotal = value as u64;
+                let mut iteration = 0;
+                while !stack.is_empty() {
+                    iteration = iteration + 1;
+                    let prev_value = stack.pop_front().ok_or_else(|| Error::BadDER)?;
+                    subtotal = subtotal + ((prev_value - 128) as u64) * 128_u64.pow(iteration);
+                }
+                oid_string.push_str(&subtotal.to_string());
             }
         }
+        Ok(oid_string)
+    })
+}
+
+///
+#[cfg(feature = "std")]
+pub fn parse_directory_string<'a>(input: &mut untrusted::Reader<'a>) -> Result<std::string::String, Error> {
+    use std::vec::Vec;
+    use std::string::String;
+    use core::iter::FromIterator;
+
+    // Expect tag for PrintableString
+    // TODO: check for string tag
+    let (_, printable_string) =
+        read_tag_and_get_value(input).map_err(|_| Error::BadDER)?;
+
+    let value = Vec::from_iter(printable_string.iter().cloned());
+    let value = String::from_utf8(value).map_err(|_| Error::BadDER);
+
+    value
+}
+
+#[cfg(feature = "std")]
+#[derive(Debug)]
+pub struct RelativeDistinguishedName {
+    common_name: Option<std::string::String>,
+    country_name: Option<std::string::String>,
+    locality_name: Option<std::string::String>,
+    state_or_province_name: Option<std::string::String>,
+    organization_name: Option<std::string::String>,
+    organizational_unit_name: Option<std::string::String>,
+    extra: Option<std::string::String>,
+}
+
+///
+#[cfg(feature = "std")]
+pub fn parse_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<RelativeDistinguishedName, Error> {
+    use std::string::String;
+    use std::string::ToString;
+
+    // read one name component
+    fn parse_one_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<(String, String), Error> {
+        // We expect a Set here
+        if input.peek(0x31) {
+            let (_, set_inner) =
+                read_tag_and_get_value(input).map_err(|_| Error::BadDER)?;
+
+            // read the sequence bytes
+            let mut set_data = untrusted::Reader::new(set_inner);
+            let seq = expect_tag_and_get_value(&mut set_data, Tag::Sequence)?;
+
+            seq.read_all(Error::BadDER, |reader| {
+                // Read attribute type and value
+                let oid = parse_oid(reader)?;
+                let name = parse_directory_string(reader)?;
+
+                Ok((oid, name))
+            })
+
+        } else {
+            Err(Error::BadDER)
+        }
     }
-    Ok(oid_string)
-    //})
+
+    // Build up the RDN by reading names until there is nothing left
+    let mut rdn = RelativeDistinguishedName {
+        common_name: None,
+        country_name: None,
+        locality_name: None,
+        state_or_province_name: None,
+        organization_name: None,
+        organizational_unit_name: None,
+        extra: None,
+    };
+
+    while let Ok((id, name)) = parse_one_name(input) {
+        match id.as_str() {
+            "2.5.4.3" => { rdn.common_name = Some(name); },
+            "2.5.4.6" => { rdn.country_name = Some(name); },
+            "2.5.4.7" => { rdn.locality_name = Some(name); },
+            "2.5.4.8" => { rdn.state_or_province_name = Some(name); },
+            "2.5.4.10" => { rdn.organization_name = Some(name); },
+            "2.5.4.11" => { rdn.organizational_unit_name = Some(name); },
+            other => { rdn.extra = Some(other.to_string()); }
+        }
+    }
+
+    Ok(rdn)
 }
 
 macro_rules! oid {
