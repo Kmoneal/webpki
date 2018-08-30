@@ -283,6 +283,28 @@ pub fn parse_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<RelativeDisti
 
     Ok(rdn)
 }
+///
+#[cfg(feature = "std")]
+pub fn parse_alt_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<std::vec::Vec<std::string::String>, Error> {
+    use std::string::String;
+    use std::vec::Vec;
+    use core::iter::FromIterator;
+
+    let mut alt_names = Vec::new();
+    while let Ok((_, name)) = read_tag_and_get_value(input).map_err(|_| Error::BadDER) {
+        let value = Vec::from_iter(name.iter().cloned());
+        let string_name = String::from_utf8(value).map_err(|_| Error::BadDER);
+        let string_name = match string_name {
+            Ok(name) => name,
+            Err(e) => return Err(e)
+        };
+
+        alt_names.push(string_name);
+    }
+
+    Ok(alt_names)
+}
+
 
 macro_rules! oid {
     ( $first:expr, $second:expr, $( $tail:expr ),* ) =>

@@ -274,11 +274,13 @@ impl <'a> EndEntityCert<'a> {
     }
 
     ///
-    pub fn get_subject_alt_name(&self) -> Option<&[u8]> {
-        let alt_name = self.inner.get_subject_alt_name();
-        match alt_name {
-            Some(subject) => Some(subject.as_slice_less_safe()),
-            None => None
+    pub fn get_subject_alt_name(&self) -> Result<std::vec::Vec<std::string::String>, Error> {
+        match self.inner.get_subject_alt_name() {
+            Some(names) => {
+                let mut reader = untrusted::Reader::new(names);
+                der::parse_alt_name(&mut reader)
+            },
+            None => Err(Error::BadDER)
         }
     }
 }
