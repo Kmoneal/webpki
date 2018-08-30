@@ -218,7 +218,7 @@ pub fn parse_directory_string<'a>(input: &mut untrusted::Reader<'a>) -> Result<s
 
 #[cfg(feature = "std")]
 #[derive(Debug)]
-pub struct RelativeDistinguishedName {
+pub struct Name {
     common_name: Option<std::string::String>,
     country_name: Option<std::string::String>,
     locality_name: Option<std::string::String>,
@@ -230,7 +230,7 @@ pub struct RelativeDistinguishedName {
 
 ///
 #[cfg(feature = "std")]
-pub fn parse_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<RelativeDistinguishedName, Error> {
+pub fn parse_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<Name, Error> {
     use std::string::String;
     use std::string::ToString;
 
@@ -258,8 +258,8 @@ pub fn parse_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<RelativeDisti
         }
     }
 
-    // Build up the RDN by reading names until there is nothing left
-    let mut rdn = RelativeDistinguishedName {
+    // Build up the Name by reading RDNs until there is nothing left
+    let mut full_name = Name {
         common_name: None,
         country_name: None,
         locality_name: None,
@@ -271,18 +271,19 @@ pub fn parse_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<RelativeDisti
 
     while let Ok((id, name)) = parse_one_name(input) {
         match id.as_str() {
-            "2.5.4.3" => { rdn.common_name = Some(name); },
-            "2.5.4.6" => { rdn.country_name = Some(name); },
-            "2.5.4.7" => { rdn.locality_name = Some(name); },
-            "2.5.4.8" => { rdn.state_or_province_name = Some(name); },
-            "2.5.4.10" => { rdn.organization_name = Some(name); },
-            "2.5.4.11" => { rdn.organizational_unit_name = Some(name); },
-            other => { rdn.extra = Some(other.to_string()); }
+            "2.5.4.3" => { full_name.common_name = Some(name); },
+            "2.5.4.6" => { full_name.country_name = Some(name); },
+            "2.5.4.7" => { full_name.locality_name = Some(name); },
+            "2.5.4.8" => { full_name.state_or_province_name = Some(name); },
+            "2.5.4.10" => { full_name.organization_name = Some(name); },
+            "2.5.4.11" => { full_name.organizational_unit_name = Some(name); },
+            other => { full_name.extra = Some(other.to_string()); }
         }
     }
 
-    Ok(rdn)
+    Ok(full_name)
 }
+
 ///
 #[cfg(feature = "std")]
 pub fn parse_alt_name<'a>(input: &mut untrusted::Reader<'a>) -> Result<std::vec::Vec<std::string::String>, Error> {

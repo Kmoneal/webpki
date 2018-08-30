@@ -254,7 +254,7 @@ impl <'a> EndEntityCert<'a> {
     }
 
     ///
-    pub fn get_issuer(&self) -> Result<der::RelativeDistinguishedName, Error> {
+    pub fn get_issuer(&self) -> Result<der::Name, Error> {
         let mut reader = untrusted::Reader::new(self.inner.get_issuer());
         der::parse_name(&mut reader)
     }
@@ -268,7 +268,7 @@ impl <'a> EndEntityCert<'a> {
     }
 
     ///
-    pub fn get_subject(&self) -> Result<der::RelativeDistinguishedName, Error> {
+    pub fn get_subject(&self) -> Result<der::Name, Error> {
         let mut reader = untrusted::Reader::new(self.inner.get_subject());
         der::parse_name(&mut reader)
     }
